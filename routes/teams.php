@@ -96,14 +96,24 @@ Router::delete('/teams/{id}', function($id) {
             return;
         }
 
-        // Blocca eliminazione se la squadra è iscritta a un torneo attivo
+        // Blocca eliminazione se la squadra è in un torneo attivo
         $activeTournaments = DB::select(
-            "SELECT t.name FROM registration r
-             JOIN tournament t ON t.id = r.tournament_fk
-             WHERE r.team_fk = :team_id AND t.is_active = true
+            "SELECT t.name FROM game g
+             JOIN tournament t ON t.id = g.tournament_fk
+             WHERE (g.home_team_fk = :home_id OR g.away_team_fk = :away_id)
+               AND t.is_active IS TRUE
              LIMIT 1",
-            ['team_id' => $id]
+            ['home_id' => (int)$id, 'away_id' => (int)$id]
         );
+        if (empty($activeTournaments)) {
+            $activeTournaments = DB::select(
+                "SELECT t.name FROM registration r
+                 JOIN tournament t ON t.id = r.tournament_fk
+                 WHERE r.team_fk = :team_id AND t.is_active IS TRUE
+                 LIMIT 1",
+                ['team_id' => (int)$id]
+            );
+        }
         if (!empty($activeTournaments)) {
             $tournamentName = $activeTournaments[0]['name'] ?? 'sconosciuto';
             Response::error(
