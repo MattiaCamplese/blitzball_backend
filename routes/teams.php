@@ -5,6 +5,7 @@
 
 use App\Utils\Response;
 use App\Models\Team;
+use App\Database\DB;
 use App\Utils\Request;
 use Pecee\SimpleRouter\SimpleRouter as Router;
 
@@ -92,6 +93,23 @@ Router::delete('/teams/{id}', function($id) {
         $team = Team::find($id);
         if($team === null) {
             Response::error('teams non trovati', Response::HTTP_NOT_FOUND)->send();
+            return;
+        }
+
+        // Blocca eliminazione se la squadra è iscritta a un torneo attivo
+        $activeTournaments = DB::select(
+            "SELECT t.name FROM registration r
+             JOIN tournament t ON t.id = r.tournament_fk
+             WHERE r.team_fk = :team_id AND t.is_active = true
+             LIMIT 1",
+            ['team_id' => $id]
+        );
+        if (!empty($activeTournaments)) {
+            $tournamentName = $activeTournaments[0]['name'] ?? 'sconosciuto';
+            Response::error(
+                'Impossibile eliminare la squadra: è iscritta al torneo attivo "' . $tournamentName . '"',
+                Response::HTTP_CONFLICT
+            )->send();
             return;
         }
 

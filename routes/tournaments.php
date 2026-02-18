@@ -4,6 +4,7 @@
 
 use App\Utils\Response;
 use App\Models\Tournament;
+use App\Models\HallOfFame;
 use App\Utils\Request;
 use Pecee\SimpleRouter\SimpleRouter as Router;
 
@@ -92,6 +93,13 @@ Router::delete('/tournaments/{id}', function($id) {
         if($tournament === null) {
             Response::error('tournaments non trovati', Response::HTTP_NOT_FOUND)->send();
             return;
+        }
+
+        // Prima di eliminare il torneo, decrementa i counter di team e atleti
+        // se esiste un record nella hall_of_fame per questo torneo
+        $hofRecords = HallOfFame::where('tournament_fk', $id);
+        foreach ($hofRecords as $hof) {
+            $hof->decrementTeamTournaments();
         }
 
         $tournament->delete();
