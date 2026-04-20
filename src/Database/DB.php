@@ -118,6 +118,11 @@ class DB
         return self::$config;
     }
 
+    public static function inTransaction(): bool
+    {
+        return self::connection()->inTransaction();
+    }
+
     /**
      * Esegue una query SELECT
      * 
