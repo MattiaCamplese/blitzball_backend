@@ -181,10 +181,12 @@ Router::patch('/brackets_generator/{game_id}', function ($game_id) {
 
         // Aggiorna risultato fuori dalla transazione
         $winnerId = BracketGenerator::updateGameResult($game, (int)$data['home_score'], (int)$data['away_score']);
-        
+
         // Salva i marcatori fuori dalla transazione
         $savedScorers = [];
         $newScorers = $data['scorers'] ?? [];
+        error_log('SCORERS RICEVUTI: ' . json_encode($newScorers));
+        error_log('DATA COMPLETA: ' . json_encode($data));
         foreach ($newScorers as $scorerData) {
             if (empty($scorerData['athlete_fk']) || empty($scorerData['goals'])) continue;
 
