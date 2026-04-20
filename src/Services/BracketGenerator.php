@@ -8,59 +8,13 @@ use App\Models\Tournament;
 
 class BracketGenerator
 {
-    public static function generateBracket(Tournament $tournament, array $teamIds): array
-    {
-        $validNumbers = [4, 8, 16, 32];
-        $numTeams = count($teamIds);
-
-        if (!in_array($numTeams, $validNumbers)) {
-            throw new \Exception("Numero di team non valido: " . $numTeams);
-        }
-
-        shuffle($teamIds);
-
-        $games = [];
-        $round = 1;
-        $matchNumber = 1;
-        $totalRounds = (int) log($numTeams, 2);
-
-        $positionInRound = 1;
-        for ($i = 0; $i < $numTeams; $i += 2) {
-            $game = new Game();
-            $game->tournament_fk = $tournament->id;
-            $game->match_number = $matchNumber++;
-            $game->round = $round;
-            $game->position_in_round = $positionInRound++;
-            $game->home_team_fk = $teamIds[$i];
-            $game->away_team_fk = $teamIds[$i + 1];
-            $game->completed = false;
-            $game->save();
-            $games[] = $game;
-        }
-
-        for ($r = 2; $r <= $totalRounds; $r++) {
-            $numGames = $numTeams / (2 ** $r);
-            if ($numGames < 1) $numGames = 1;
-            $positionInRound = 1;
-            for ($i = 0; $i < $numGames; $i++) {
-                $game = new Game();
-                $game->tournament_fk = $tournament->id;
-                $game->match_number = $matchNumber++;
-                $game->round = $r;
-                $game->position_in_round = $positionInRound++;
-                $game->completed = false;
-                $game->save();
-                $games[] = $game;
-            }
-        }
-
-        return $games;
-    }
-
+    /**
+     * Genera tutte le partite iniziali del torneo (primo round)
+     */
     public static function updateGameResult(Game $game, int $homeScore, int $awayScore): int
     {
         if ($homeScore === $awayScore) {
-            throw new \Exception('Pareggio non consentito in una partita ad eliminazione diretta');
+            throw new \Exception('Pareggio non consentito');
         }
 
         $game->home_score = $homeScore;
@@ -128,8 +82,11 @@ class BracketGenerator
         $nextGame->save();
 
         return $winnerTeamId;
-    }
+    }   
 
+    /**
+     * Funzione di utilità per ottenere il vincitore finale del torneo
+     */
     public static function getFinal(int $tournamentId): ?Game
     {
         $games = Game::where('tournament_fk', $tournamentId);
