@@ -11,59 +11,59 @@ class BracketGenerator
     /**
      * Genera tutte le partite iniziali del torneo (primo round)
      */
-   public static function generateBracket(Tournament $tournament, array $teamIds): array
-{
-    $validNumbers = [4, 8, 16, 32];
-    $numTeams = count($teamIds);
+    public static function generateBracket(Tournament $tournament, array $teamIds): array
+    {
+        $validNumbers = [4, 8, 16, 32];
+        $numTeams = count($teamIds);
 
-    if (!in_array($numTeams, $validNumbers)) {
-        throw new \Exception("Numero di team non valido: " . $numTeams);
-    }
+        if (!in_array($numTeams, $validNumbers)) {
+            throw new \Exception("Numero di team non valido: " . $numTeams);
+        }
 
-    shuffle($teamIds);
+        shuffle($teamIds);
 
-    $games = [];
-    $round = 1;
-    $matchNumber = 1;
+        $games = [];
+        $round = 1;
+        $matchNumber = 1;
 
-    // Calcola numero totale di round
-    $totalRounds = (int) log($numTeams, 2);
+        // Calcola numero totale di round
+        $totalRounds = (int) log($numTeams, 2);
 
-    // Partite del primo round
-    $positionInRound = 1;
-    for ($i = 0; $i < $numTeams; $i += 2) {
-        $game = new Game();
-        $game->tournament_fk = $tournament->id;
-        $game->match_number = $matchNumber++;
-        $game->round = $round;
-        $game->position_in_round = $positionInRound++;
-        $game->home_team_fk = $teamIds[$i];
-        $game->away_team_fk = $teamIds[$i + 1];
-        $game->completed = false;
-        $game->save();
-        $games[] = $game;
-    }
-
-    // Genera i round successivi senza team
-    for ($r = 2; $r <= $totalRounds; $r++) {
-        $numGames = $numTeams / (2 ** $r);
-        if ($numGames < 1) $numGames = 1; // ultima partita = finale
+        // Partite del primo round
         $positionInRound = 1;
-        for ($i = 0; $i < $numGames; $i++) {
+        for ($i = 0; $i < $numTeams; $i += 2) {
             $game = new Game();
             $game->tournament_fk = $tournament->id;
             $game->match_number = $matchNumber++;
-            $game->round = $r;
+            $game->round = $round;
             $game->position_in_round = $positionInRound++;
+            $game->home_team_fk = $teamIds[$i];
+            $game->away_team_fk = $teamIds[$i + 1];
             $game->completed = false;
-            // team saranno assegnati dinamicamente in updateGameResult
             $game->save();
             $games[] = $game;
         }
-    }
 
-    return $games;
-}
+        // Genera i round successivi senza team
+        for ($r = 2; $r <= $totalRounds; $r++) {
+            $numGames = $numTeams / (2 ** $r);
+            if ($numGames < 1) $numGames = 1; // ultima partita = finale
+            $positionInRound = 1;
+            for ($i = 0; $i < $numGames; $i++) {
+                $game = new Game();
+                $game->tournament_fk = $tournament->id;
+                $game->match_number = $matchNumber++;
+                $game->round = $r;
+                $game->position_in_round = $positionInRound++;
+                $game->completed = false;
+                // team saranno assegnati dinamicamente in updateGameResult
+                $game->save();
+                $games[] = $game;
+            }
+        }
+
+        return $games;
+    }
 
     /**
      * Aggiorna il risultato di una partita e genera la partita successiva
@@ -85,6 +85,10 @@ class BracketGenerator
 
         $tournamentGames = Game::where('tournament_fk', $game->tournament_fk);
 
+        if (empty($tournamentGames)) {
+            throw new \Exception('Nessuna partita trovata per questo torneo');
+        }
+
         // Controllo se siamo nell'ultimo round con una sola partita
         $gamesInThisRound = array_filter($tournamentGames, fn($g) => $g->round === $game->round);
         if (count($gamesInThisRound) === 1) {
@@ -98,7 +102,7 @@ class BracketGenerator
 
             // Incrementa tornei vinti
             $hof->incrementTeamTournaments();
-            
+
             $tournament = Tournament::find($game->tournament_fk);
             if ($tournament) {
                 $tournament->is_active = false;
@@ -148,6 +152,8 @@ class BracketGenerator
     public static function getFinal(int $tournamentId): ?Game
     {
         $games = Game::where('tournament_fk', $tournamentId);
+
+        if (empty($games)) return null;
 
         $maxRound = max(array_map(fn($g) => $g->round, $games));
 
