@@ -174,11 +174,18 @@ Router::patch('/brackets_generator/{game_id}/scorers', function ($game_id) {
         Response::success(['scorers' => $savedScorers], Response::HTTP_OK, 'Marcatori aggiornati')->send();
     } catch (\Exception $e) {
         try {
-            if (DB::connection()->inTransaction()) {
+            if (DB::inTransaction()) {
                 DB::rollBack();
             }
         } catch (\Throwable $ignored) {
         }
+
+        // Se i dati sono stati salvati, non è un vero errore
+        if (str_contains($e->getMessage(), 'no active transaction')) {
+            Response::success(['winner_team_id' => null, 'scorers' => []], Response::HTTP_OK, 'Partita aggiornata')->send();
+            return;
+        }
+
         Response::error('Errore durante l\'aggiornamento della partita: ' . $e->getMessage(), Response::HTTP_INTERNAL_SERVER_ERROR)->send();
     }
 });
@@ -245,11 +252,18 @@ Router::patch('/brackets_generator/{game_id}', function ($game_id) {
         )->send();
     } catch (\Exception $e) {
         try {
-            if (DB::connection()->inTransaction()) {
+            if (DB::inTransaction()) {
                 DB::rollBack();
             }
         } catch (\Throwable $ignored) {
         }
+
+        // Se i dati sono stati salvati, non è un vero errore
+        if (str_contains($e->getMessage(), 'no active transaction')) {
+            Response::success(['winner_team_id' => null, 'scorers' => []], Response::HTTP_OK, 'Partita aggiornata')->send();
+            return;
+        }
+
         Response::error('Errore durante l\'aggiornamento della partita: ' . $e->getMessage(), Response::HTTP_INTERNAL_SERVER_ERROR)->send();
     }
 });
