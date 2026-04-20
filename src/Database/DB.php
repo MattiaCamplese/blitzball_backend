@@ -79,6 +79,7 @@ class DB
             PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
             PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
             PDO::ATTR_EMULATE_PREPARES => false, // IMPORTANTE per sicurezza!
+            PDO::ATTR_PERSISTENT => false, // Non usiamo connessioni persistenti per evitare problemi di concorrenza
         ];
         $options = array_merge($defaultOptions, $config['options'] ?? []);
 
@@ -124,11 +125,11 @@ class DB
         try {
             // 1. Prepara la query (il database la analizza)
             $stmt = self::connection()->prepare($query);
-            
+
             // 2. Esegue la query sostituendo i placeholders con i valori
             // I valori vengono automaticamente escapati dal database (sicuro!)
             $stmt->execute($bindings);
-            
+
             // 3. Restituisce tutti i risultati come array associativo
             return $stmt->fetchAll(PDO::FETCH_ASSOC);
         } catch (PDOException $e) {
@@ -154,7 +155,7 @@ class DB
         try {
             $stmt = self::connection()->prepare($query);
             $stmt->execute($bindings);
-            
+
             // Per PostgreSQL, lastInsertId() può fallire se non c'è una sequenza nella tabella
             // (es. tabelle pivot senza colonna id con sequenza)
             // In questo caso, restituiamo 0 invece di lanciare un'eccezione
@@ -277,7 +278,12 @@ class DB
      */
     public static function beginTransaction(): bool
     {
-        return self::connection()->beginTransaction();
+        $pdo = self::connection();
+        // Se c'è già una transazione aperta (da errore precedente), rollbacka prima
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+        return $pdo->beginTransaction();
     }
 
     /**
@@ -293,9 +299,15 @@ class DB
      */
     public static function rollBack(): bool
     {
-        return self::connection()->rollBack();
+        try {
+            $result = self::connection()->rollBack();
+        } catch (\Exception $e) {
+            // Se il rollback fallisce, resetta la connessione
+            self::$connection = null;
+            $result = false;
+        }
+        return $result;
     }
-
     /**
      * Chiude la connessione al database
      * 
