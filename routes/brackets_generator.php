@@ -188,8 +188,7 @@ Router::patch('/brackets_generator/{game_id}', function ($game_id) {
         error_log('SCORERS RICEVUTI: ' . json_encode($newScorers));
         error_log('DATA COMPLETA: ' . json_encode($data));
         foreach ($newScorers as $scorerData) {
-            if (!isset($scorerData['athlete_fk']) || (int)$scorerData['athlete_fk'] <= 0) continue;
-            if (!isset($scorerData['goals']) || (int)$scorerData['goals'] <= 0) continue;
+            if (empty($scorerData['athlete_fk']) || empty($scorerData['goals'])) continue;
 
             $ms = MatchScorer::create([
                 'game_fk'    => (int)$game->id,
