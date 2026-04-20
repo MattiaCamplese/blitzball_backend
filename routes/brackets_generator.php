@@ -77,7 +77,6 @@ Router::get('/brackets_generator/{tournament_id}/final', function ($tournament_i
             'winner_team_id' => $winnerTeamId,
             'score' => "{$final->home_score}-{$final->away_score}"
         ])->send();
-
     } catch (\Exception $e) {
         Response::error('Errore nel recupero della finale: ' . $e->getMessage(), Response::HTTP_INTERNAL_SERVER_ERROR)->send();
     }
@@ -174,8 +173,13 @@ Router::patch('/brackets_generator/{game_id}/scorers', function ($game_id) {
 
         Response::success(['scorers' => $savedScorers], Response::HTTP_OK, 'Marcatori aggiornati')->send();
     } catch (\Exception $e) {
-        try { DB::rollBack(); } catch (\Throwable $ignored) {}
-        Response::error('Errore aggiornamento marcatori: ' . $e->getMessage(), Response::HTTP_INTERNAL_SERVER_ERROR)->send();
+        try {
+            if (DB::connection()->inTransaction()) {
+                DB::rollBack();
+            }
+        } catch (\Throwable $ignored) {
+        }
+        Response::error('Errore durante l\'aggiornamento della partita: ' . $e->getMessage(), Response::HTTP_INTERNAL_SERVER_ERROR)->send();
     }
 });
 
@@ -240,7 +244,12 @@ Router::patch('/brackets_generator/{game_id}', function ($game_id) {
             'Partita aggiornata con successo'
         )->send();
     } catch (\Exception $e) {
-        try { DB::rollBack(); } catch (\Throwable $ignored) {}
+        try {
+            if (DB::connection()->inTransaction()) {
+                DB::rollBack();
+            }
+        } catch (\Throwable $ignored) {
+        }
         Response::error('Errore durante l\'aggiornamento della partita: ' . $e->getMessage(), Response::HTTP_INTERNAL_SERVER_ERROR)->send();
     }
 });
