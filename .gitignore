@@ -7,7 +7,7 @@ composer.lock
 .env.local
 config.local.php
 *.local.php
-**/database.php
+
 
 # File IDE
 .idea/
