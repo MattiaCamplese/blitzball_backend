@@ -33,6 +33,17 @@ class DB
         if (self::$connection === null) {
             self::$connection = self::createConnection();
         }
+
+        // Se c'è una transazione aperta e in errore, resetta
+        try {
+            if (self::$connection->inTransaction()) {
+                self::$connection->rollBack();
+            }
+        } catch (\Exception $e) {
+            self::$connection = null;
+            self::$connection = self::createConnection();
+        }
+
         return self::$connection;
     }
 
@@ -58,7 +69,7 @@ class DB
 
             case 'pgsql':
                 $dsn = sprintf(
-                    'pgsql:host=%s;port=%s;dbname=%s',
+                    'pgsql:host=%s;port=%s;dbname=%s;sslmode=require',
                     $config['host'],
                     $config['port'] ?? 5432,
                     $config['database']
