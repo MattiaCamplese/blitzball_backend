@@ -13,7 +13,6 @@ class Athlete extends BaseModel
     public ?string $last_name = null;
     public ?string $birth_place = null;
     public ?string $birth_date = null;
-    public ?string $img = null;
     public ?int $tournaments_won = 0;
     public ?int $goals = 0;
 
@@ -30,7 +29,6 @@ class Athlete extends BaseModel
             "fiscal_code" => ["required", "string", "min:16", "max:16"],
             "first_name" => ["required", "string", "min:1", "max:50"],
             "last_name" => ["required", "string", "min:1", "max:50"],
-            "img" => ["sometimes", "string", "min:1", "max:255"],
             "goals" => ["sometimes", "integer", "min:0"],
         ];
     }
