@@ -83,7 +83,7 @@ class BracketGenerator
             ? $game->home_team_fk
             : $game->away_team_fk;
 
-        $tournamentGames = Game::where('tournament_fk', $game->tournament_fk);
+        $tournamentGames = Game::where('tournament_fk', (int)$game->tournament_fk);
 
         if (empty($tournamentGames)) {
             throw new \Exception('Nessuna partita trovata per questo torneo');
