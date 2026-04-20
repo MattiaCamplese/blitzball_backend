@@ -1,7 +1,5 @@
 <?php
 
-/* Routes per gestione brackets_generator come servizio */
-
 use App\Models\Tournament;
 use App\Models\Game;
 use App\Models\MatchScorer;
@@ -12,9 +10,6 @@ use App\Utils\Request;
 use App\Database\DB;
 use Pecee\SimpleRouter\SimpleRouter as Router;
 
-/**
- * GET /api/brackets_generator/{tournament_id} - Ottieni tutte le partite di un torneo (con marcatori)
- */
 Router::get('/brackets_generator/{tournament_id}', function ($tournament_id) {
     try {
         $tournament = Tournament::find($tournament_id);
@@ -25,7 +20,6 @@ Router::get('/brackets_generator/{tournament_id}', function ($tournament_id) {
 
         $games = Game::where('tournament_fk', $tournament->id);
 
-        // Aggiungi i marcatori per ogni partita
         $result = [];
         foreach ($games as $game) {
             $gameArr = $game->toArray();
@@ -50,9 +44,6 @@ Router::get('/brackets_generator/{tournament_id}', function ($tournament_id) {
     }
 });
 
-/**
- * GET /api/brackets_generator/{tournament_id}/final - Ottieni risultato della finale
- */
 Router::get('/brackets_generator/{tournament_id}/final', function ($tournament_id) {
     try {
         $tournament = Tournament::find($tournament_id);
@@ -73,18 +64,15 @@ Router::get('/brackets_generator/{tournament_id}/final', function ($tournament_i
             : $final->away_team_fk;
 
         Response::success([
-            'final_game_id' => $final->id,
+            'final_game_id'  => $final->id,
             'winner_team_id' => $winnerTeamId,
-            'score' => "{$final->home_score}-{$final->away_score}"
+            'score'          => "{$final->home_score}-{$final->away_score}"
         ])->send();
     } catch (\Exception $e) {
         Response::error('Errore nel recupero della finale: ' . $e->getMessage(), Response::HTTP_INTERNAL_SERVER_ERROR)->send();
     }
 });
 
-/**
- * POST /api/brackets_generator - Crea un nuovo bracket per un torneo
- */
 Router::post('/brackets_generator', function () {
     try {
         $request = new Request();
@@ -111,9 +99,6 @@ Router::post('/brackets_generator', function () {
     }
 });
 
-/**
- * PATCH /api/brackets_generator/{game_id}/scorers - Aggiorna solo i marcatori (partita già completata)
- */
 Router::patch('/brackets_generator/{game_id}/scorers', function ($game_id) {
     try {
         $request = new Request();
@@ -132,8 +117,6 @@ Router::patch('/brackets_generator/{game_id}/scorers', function ($game_id) {
 
         $newScorers = $data['scorers'] ?? [];
 
-        DB::beginTransaction();
-
         // Decrementa i gol dei vecchi marcatori e cancellali
         $oldScorers = MatchScorer::where('game_fk', $game->id);
         foreach ($oldScorers as $ms) {
@@ -145,7 +128,7 @@ Router::patch('/brackets_generator/{game_id}/scorers', function ($game_id) {
             $ms->delete();
         }
 
-        // Inserisci i nuovi marcatori e aggiorna i gol degli atleti
+        // Inserisci i nuovi marcatori
         $savedScorers = [];
         foreach ($newScorers as $scorerData) {
             if (empty($scorerData['athlete_fk']) || empty($scorerData['goals'])) continue;
@@ -169,30 +152,12 @@ Router::patch('/brackets_generator/{game_id}/scorers', function ($game_id) {
             }
         }
 
-        DB::commit();
-
         Response::success(['scorers' => $savedScorers], Response::HTTP_OK, 'Marcatori aggiornati')->send();
     } catch (\Exception $e) {
-        try {
-            if (DB::inTransaction()) {
-                DB::rollBack();
-            }
-        } catch (\Throwable $ignored) {
-        }
-
-        // Se i dati sono stati salvati, non è un vero errore
-        if (str_contains($e->getMessage(), 'no active transaction')) {
-            Response::success(['winner_team_id' => null, 'scorers' => []], Response::HTTP_OK, 'Partita aggiornata')->send();
-            return;
-        }
-
-        Response::error('Errore durante l\'aggiornamento della partita: ' . $e->getMessage(), Response::HTTP_INTERNAL_SERVER_ERROR)->send();
+        Response::error('Errore aggiornamento marcatori: ' . $e->getMessage(), Response::HTTP_INTERNAL_SERVER_ERROR)->send();
     }
 });
 
-/**
- * PATCH /api/brackets_generator/{game_id} - Aggiorna risultato di una partita (+ marcatori opzionali)
- */
 Router::patch('/brackets_generator/{game_id}', function ($game_id) {
     try {
         $request = new Request();
@@ -214,11 +179,12 @@ Router::patch('/brackets_generator/{game_id}', function ($game_id) {
             return;
         }
 
+        // Aggiorna risultato fuori dalla transazione
         DB::beginTransaction();
-
         $winnerId = BracketGenerator::updateGameResult($game, (int)$data['home_score'], (int)$data['away_score']);
+        DB::commit();
 
-        // Salva i marcatori se forniti
+        // Salva i marcatori fuori dalla transazione
         $savedScorers = [];
         $newScorers = $data['scorers'] ?? [];
         foreach ($newScorers as $scorerData) {
@@ -243,8 +209,6 @@ Router::patch('/brackets_generator/{game_id}', function ($game_id) {
             }
         }
 
-        DB::commit();
-
         Response::success(
             ['winner_team_id' => $winnerId, 'scorers' => $savedScorers],
             Response::HTTP_OK,
@@ -257,13 +221,6 @@ Router::patch('/brackets_generator/{game_id}', function ($game_id) {
             }
         } catch (\Throwable $ignored) {
         }
-
-        // Se i dati sono stati salvati, non è un vero errore
-        if (str_contains($e->getMessage(), 'no active transaction')) {
-            Response::success(['winner_team_id' => null, 'scorers' => []], Response::HTTP_OK, 'Partita aggiornata')->send();
-            return;
-        }
-
         Response::error('Errore durante l\'aggiornamento della partita: ' . $e->getMessage(), Response::HTTP_INTERNAL_SERVER_ERROR)->send();
     }
 });
