@@ -146,4 +146,4 @@ class BracketGenerator
 
         return null;
     }
-}a
+}
