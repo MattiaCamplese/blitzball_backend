@@ -11,67 +11,10 @@ class BracketGenerator
     /**
      * Genera tutte le partite iniziali del torneo (primo round)
      */
-    public static function generateBracket(Tournament $tournament, array $teamIds): array
-    {
-        $validNumbers = [4, 8, 16, 32];
-        $numTeams = count($teamIds);
-
-        if (!in_array($numTeams, $validNumbers)) {
-            throw new \Exception("Numero di team non valido: " . $numTeams);
-        }
-
-        shuffle($teamIds);
-
-        $games = [];
-        $round = 1;
-        $matchNumber = 1;
-
-        // Calcola numero totale di round
-        $totalRounds = (int) log($numTeams, 2);
-
-        // Partite del primo round
-        $positionInRound = 1;
-        for ($i = 0; $i < $numTeams; $i += 2) {
-            $game = new Game();
-            $game->tournament_fk = $tournament->id;
-            $game->match_number = $matchNumber++;
-            $game->round = $round;
-            $game->position_in_round = $positionInRound++;
-            $game->home_team_fk = $teamIds[$i];
-            $game->away_team_fk = $teamIds[$i + 1];
-            $game->completed = false;
-            $game->save();
-            $games[] = $game;
-        }
-
-        // Genera i round successivi senza team
-        for ($r = 2; $r <= $totalRounds; $r++) {
-            $numGames = $numTeams / (2 ** $r);
-            if ($numGames < 1) $numGames = 1; // ultima partita = finale
-            $positionInRound = 1;
-            for ($i = 0; $i < $numGames; $i++) {
-                $game = new Game();
-                $game->tournament_fk = $tournament->id;
-                $game->match_number = $matchNumber++;
-                $game->round = $r;
-                $game->position_in_round = $positionInRound++;
-                $game->completed = false;
-                // team saranno assegnati dinamicamente in updateGameResult
-                $game->save();
-                $games[] = $game;
-            }
-        }
-
-        return $games;
-    }
-
-    /**
-     * Aggiorna il risultato di una partita e genera la partita successiva
-     */
     public static function updateGameResult(Game $game, int $homeScore, int $awayScore): int
     {
         if ($homeScore === $awayScore) {
-            throw new \Exception('Pareggio non consentito in una partita ad eliminazione diretta');
+            throw new \Exception('Pareggio non consentito');
         }
 
         $game->home_score = $homeScore;
@@ -89,18 +32,15 @@ class BracketGenerator
             throw new \Exception('Nessuna partita trovata per questo torneo');
         }
 
-        // Controllo se siamo nell'ultimo round con una sola partita
         $gamesInThisRound = array_filter($tournamentGames, fn($g) => $g->round === $game->round);
+
         if (count($gamesInThisRound) === 1) {
-            // Finale: crea HallOfFame
             $hof = new HallOfFame([
-                'tournament_fk' => $game->tournament_fk,
-                'winning_team_fk' => $winnerTeamId, // ID corretto
-                'victory_date' => date('Y-m-d'),
+                'tournament_fk'   => $game->tournament_fk,
+                'winning_team_fk' => $winnerTeamId,
+                'victory_date'    => date('Y-m-d'),
             ]);
             $hof->save();
-
-            // Incrementa tornei vinti
             $hof->incrementTeamTournaments();
 
             $tournament = Tournament::find($game->tournament_fk);
@@ -109,11 +49,9 @@ class BracketGenerator
                 $tournament->save();
             }
 
-            // Ora sì, ritorna vincitore
             return $winnerTeamId;
         }
 
-        // Round successivo
         $nextRound = $game->round + 1;
         $nextPosition = (int) ceil($game->position_in_round / 2);
 
@@ -144,7 +82,7 @@ class BracketGenerator
         $nextGame->save();
 
         return $winnerTeamId;
-    }
+    }   
 
     /**
      * Funzione di utilità per ottenere il vincitore finale del torneo

@@ -180,10 +180,8 @@ Router::patch('/brackets_generator/{game_id}', function ($game_id) {
         }
 
         // Aggiorna risultato fuori dalla transazione
-        DB::beginTransaction();
         $winnerId = BracketGenerator::updateGameResult($game, (int)$data['home_score'], (int)$data['away_score']);
-        DB::commit();
-
+        
         // Salva i marcatori fuori dalla transazione
         $savedScorers = [];
         $newScorers = $data['scorers'] ?? [];
