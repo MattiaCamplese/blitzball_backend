@@ -2,7 +2,8 @@
   "permissions": {
     "allow": [
       "Bash(xargs ls *)",
-      "Bash(node -e ' *)"
+      "Bash(node -e ' *)",
+      "Bash(node -e \"try { require\\('/c/Users/Matti/Desktop/Blitzball/blitzball_frontend/node_modules/lucide-react'\\) ; const lr = require\\('/c/Users/Matti/Desktop/Blitzball/blitzball_frontend/node_modules/lucide-react'\\); console.log\\('Goal exists:', !!lr.Goal\\); } catch\\(e\\) { console.log\\(e.message\\); }\")"
     ],
     "additionalDirectories": [
       "C:\\Users\\Matti\\Desktop\\Blitzball\\blitzball_frontend\\src\\features\\athlete",
